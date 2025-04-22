@@ -1,0 +1,149 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Multi-Webview Sync - Tauri v2 Application
+
+## Project Overview
+
+Multi-Webview Sync is a Tauri v2 application that demonstrates synchronization between multiple webview windows. It implements a two-panel layout with a control panel (left window) and a web content viewer (right window). The application showcases Tauri v2's native navigation tracking and cross-window communication capabilities.
+
+## Key Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Tauri Application                    │
+│                                                         │
+│  ┌───────────────┐                 ┌───────────────┐    │
+│  │               │                 │               │    │
+│  │  Left Window  │◄───Events────►  │  Right Window │    │
+│  │ (Control Panel)│                 │ (Web Content) │    │
+│  │               │                 │               │    │
+│  └───────────────┘                 └───────────────┘    │
+│          ▲                                 ▲            │
+│          │                                 │            │
+│          ▼                                 ▼            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                 │    │
+│  │           Rust Backend (lib.rs)                 │    │
+│  │                                                 │    │
+│  └─────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Core Patterns & Components
+
+### Native Navigation Tracking
+
+The application uses Tauri v2's native `on_navigation` handler instead of JavaScript polling for URL change detection. This is implemented as:
+
+```rust
+.on_navigation(move |url| {
+    // Emit event to left window
+    left_window_handle.emit("url-changed", url.to_string()).ok();
+    true // Allow navigation
+})
+```
+
+### Event-Based Communication
+
+Windows communicate through Tauri's event system:
+
+1. Backend to frontend: `window.emit("event-name", payload)`
+2. Frontend to backend: Command invocation via `invoke()`
+3. Listen for events in frontend: `listen("event-name", callback)`
+
+### Command Structure
+
+Tauri commands follow this pattern:
+
+```rust
+#[tauri::command]
+fn command_name(param: Type, window: tauri::Window) -> Result<ReturnType, ErrorType> {
+    // Command implementation
+    Ok(result)
+}
+```
+
+## Tauri v2 API Usage
+
+### Important Traits
+
+- **Manager**: For accessing app-level functionality (`app.get_webview_window()`)
+- **Listener**: For event handling (`app_handle.listen()`)
+- **Emitter**: For emitting events (`window.emit()`)
+
+### WebviewWindow Creation
+
+```rust
+let window = tauri::WebviewWindowBuilder::new(
+    app,
+    "label",
+    tauri::WebviewUrl::App(Default::default())
+)
+.title("Window Title")
+.inner_size(width, height)
+.position(x, y)
+.build()
+.expect("failed to build window");
+```
+
+## Common Error Patterns & Solutions
+
+### Event Listener Issues
+
+When `listen` method is not found:
+- Import `Listener` trait: `use tauri::Listener;`
+- Use `app_handle.listen()` instead of `app.listen_global()`
+
+### Event Emission Failures
+
+- Always use `.ok()` or proper error handling: `window.emit("event", payload).ok();`
+- Ensure event names match exactly between emitters and listeners
+
+### Navigation Handler Errors
+
+- Ensure the URL is properly validated before navigation
+- Use proper error handling with `Result` types
+- Check that windows exist before attempting operations
+
+## Code Organization
+
+- **lib.rs**: Main backend code with window setup and command definitions
+- **Left Window**: Control panel that displays browsing history and controls
+- **Right Window**: Web content viewer that triggers navigation events
+
+## Best Practices
+
+1. Use Tauri v2's native navigation APIs over JavaScript solutions
+2. Prefer structured commands with proper error handling
+3. Maintain consistent event naming conventions
+4. Clean up event listeners to prevent memory leaks
+5. Validate and sanitize URLs before navigation
+6. Use the Manager and Listener traits appropriately
+
+## Common Development Tasks
+
+### Adding a New Command
+
+1. Define command in `lib.rs` with `#[tauri::command]` attribute
+2. Add command to `invoke_handler` registration
+3. Invoke from frontend using `invoke()`
+
+### Adding a New Event
+
+1. Emit event from backend: `window.emit("event-name", payload).ok();`
+2. Listen in frontend:
+   ```javascript
+   const unlisten = await listen("event-name", (event) => {
+     // Handle event
+   });
+   // Call unlisten() when done
+   ```
+
+### Window Management
+
+- Get window: `app.get_webview_window("label")`
+- Execute JS: `window.eval("js_code")`
+- Close window: `window.close()`
