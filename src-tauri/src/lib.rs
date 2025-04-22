@@ -54,6 +54,9 @@ pub fn run() {
             .build()
             .expect("failed to build left window");
             
+            // Get a handle to the left window for later use
+            let left_window_handle = left_window.clone();
+            
             // Create a window for the right panel (web content)
             let right_window = tauri::WebviewWindowBuilder::new(
                 app,
@@ -63,69 +66,18 @@ pub fn run() {
             .title("Web Content")
             .inner_size(900.0, 800.0)
             .position(300.0, 0.0)
+            .on_navigation(move |url| {
+                // This callback is triggered whenever navigation happens in the right window
+                println!("Navigation detected to: {}", url);
+                
+                // Emit the URL change event to the left window
+                left_window_handle.emit("url-changed", url.to_string()).ok();
+                
+                // Return true to allow the navigation to proceed
+                true
+            })
             .build()
             .expect("failed to build right window");
-            
-            // Clone the app handle for use in the events
-            let app_handle = app.app_handle();
-            
-            // Add JavaScript to monitor URL changes in the right window
-            right_window.eval(r#"
-                // Monitor URL changes
-                let lastUrl = window.location.href;
-                
-                // Function to check URL and notify if changed
-                function checkUrlChange() {
-                    if (lastUrl !== window.location.href) {
-                        lastUrl = window.location.href;
-                        console.log('URL changed to: ' + lastUrl);
-                        
-                        // Send message to Rust backend
-                        window.__TAURI__.event.emit('internal-url-changed', lastUrl);
-                    }
-                }
-                
-                // Set intervals to check URL changes
-                setInterval(checkUrlChange, 500);
-                
-                // Listen for link clicks
-                document.addEventListener('click', function(e) {
-                    const link = e.target.closest('a');
-                    if (link && link.href && !link.href.startsWith('javascript:')) {
-                        console.log('Link clicked: ' + link.href);
-                    }
-                });
-                
-                // Also listen for history API changes
-                const originalPushState = history.pushState;
-                history.pushState = function() {
-                    originalPushState.apply(this, arguments);
-                    checkUrlChange();
-                };
-                
-                const originalReplaceState = history.replaceState;
-                history.replaceState = function() {
-                    originalReplaceState.apply(this, arguments);
-                    checkUrlChange();
-                };
-                
-                // Listen for popstate event (back/forward navigation)
-                window.addEventListener('popstate', function() {
-                    checkUrlChange();
-                });
-            "#).expect("Failed to inject URL change monitor");
-            
-            // Listen for URL change events from the JavaScript
-            let left_window_clone = left_window.clone();
-            
-            // Use the app_handle instead of the app reference to register the event listener
-            app_handle.listen("internal-url-changed", move |event| {
-                let url = event.payload();
-                println!("URL changed event received: {}", url);
-                
-                // Forward the URL to the left window
-                left_window_clone.emit("url-changed", url.to_string()).ok();
-            });
             
             Ok(())
         })
