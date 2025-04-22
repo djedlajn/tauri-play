@@ -1,0 +1,65 @@
+{
+  "config": {
+    "projectTitle": "Tauri v2 Multi-Webview Sync",
+    "projectDescription": "A Tauri v2 application demonstrating multi-webview communication and navigation synchronization",
+    "aiContext": {
+      "includeDocs": true,
+      "docsWeight": 0.8,
+      "includeComments": true,
+      "preferredDocuments": [
+        "docs/README.md",
+        "docs/architecture.md",
+        "docs/api-reference.md",
+        "src-tauri/src/lib.rs"
+      ],
+      "ignoredDirectories": ["node_modules", "target", "dist", ".git"]
+    },
+    "preferredLanguageServer": "typescript-language-server",
+    "languageSettings": {
+      "rust": {
+        "analyzerEnabled": true,
+        "lspConfiguration": {
+          "checkOnSave": {
+            "command": "clippy"
+          }
+        }
+      },
+      "typescript": {
+        "suggestImports": true,
+        "inlayHints": true
+      }
+    }
+  },
+  "rules": [
+    {
+      "name": "Tauri v2 API Usage",
+      "description": "Ensures Tauri v2 APIs are used correctly",
+      "pattern": {
+        "includes": ["src-tauri/src/**/*.rs"],
+        "excludes": []
+      },
+      "tags": ["tauri", "best-practices"],
+      "aiPrompt": "Make sure all Tauri v2 APIs are used correctly. Focus on proper event handling with Listener trait, use of the manager trait, and the WebviewWindowBuilder with the on_navigation handler."
+    },
+    {
+      "name": "Event Communication",
+      "description": "Ensures proper event communication between windows",
+      "pattern": {
+        "includes": ["src-tauri/src/**/*.rs", "src/**/*.{ts,tsx,js,jsx}"],
+        "excludes": []
+      },
+      "tags": ["events", "communication"],
+      "aiPrompt": "Check that events are properly emitted and listened for both in Rust backend and in frontend code. Ensure event names match between emitters and listeners."
+    },
+    {
+      "name": "Navigation Handler",
+      "description": "Ensures navigation is handled properly and securely",
+      "pattern": {
+        "includes": ["src-tauri/src/**/*.rs"],
+        "excludes": []
+      },
+      "tags": ["navigation", "security"],
+      "aiPrompt": "Verify that navigation is handled using Tauri v2's on_navigation handler and that URLs are properly validated and sanitized before navigation."
+    }
+  ]
+}
